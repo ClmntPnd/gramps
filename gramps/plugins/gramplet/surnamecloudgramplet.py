@@ -17,17 +17,15 @@
 
 # ------------------------------------------------------------------------
 #
-# Python modules
-#
-# ------------------------------------------------------------------------
-
-# ------------------------------------------------------------------------
-#
 # Gramps modules
 #
 # ------------------------------------------------------------------------
 
-from gramps.plugins.gramplet.cloudgramplet import CloudGramplet 
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+from gramps.gui.plug.quick import run_quick_report_by_name
+from gramps.plugins.gramplet.cloudgramplet import CloudGramplet
+
+_ = glocale.translation.sgettext
 
 # ------------------------------------------------------------------------
 #
@@ -40,9 +38,11 @@ class SurnameCloudGramplet(CloudGramplet):
     def init(self):
         CloudGramplet.init(self)
         self.set_value_name("surname")
-        self.set_item_name("person")
         self.set_preference_no_value("preferences.no-surname-text")
-        self.set_link_type("Surname")
+        self.set_tooltip(_("Click surname to view people with that surname"))
+
+    def on_item_clicked(self, word, linked_data):
+        run_quick_report_by_name(self.dbstate, self.uistate, "samesurnames", linked_data)
 
     def db_changed(self):
         self.connect(self.dbstate.db, "person-add", self.update)
@@ -52,11 +52,15 @@ class SurnameCloudGramplet(CloudGramplet):
         self.connect(self.dbstate.db, "family-rebuild", self.update)
 
     def get_items(self):
-        items = []
-
+        counts = {}
+        handles = {}
         for person in self.dbstate.db.iter_people():
             allnames = [person.get_primary_name()] + person.get_alternate_names()
             for name in allnames:
-                name = name.get_group_name().strip()
-                items.append((name , person.handle))
-        return items
+                surname = name.get_surname().strip()
+                if not surname:
+                    continue
+                counts[surname] = counts.get(surname, 0) + 1
+                if surname not in handles:
+                    handles[surname] = person.handle
+        return [(surname, handles[surname], counts[surname]) for surname in counts]

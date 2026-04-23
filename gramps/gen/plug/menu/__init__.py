@@ -26,6 +26,7 @@ from ._option import Option
 from ._string import StringOption
 from ._color import ColorOption
 from ._number import NumberOption
+from ._slider import SliderOption
 from ._text import TextOption
 from ._boolean import BooleanOption
 from ._enumeratedlist import EnumeratedListOption

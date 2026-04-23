@@ -610,9 +610,14 @@ class GuiGramplet:
             # put Widget next to label
             hbox.attach(self.pui.option_dict[item][0], 1, row, 1, 1)
             row += 1
-        save_button = Gtk.Button.new_with_mnemonic(_("_Save"))
-        topbox.pack_end(save_button, False, False, 0)
-        save_button.connect("clicked", self.pui.save_update_options)
+        if getattr(self.pui, "autosave_options", False):
+            for item in self.pui.option_order:
+                option = self.pui.option_dict[item][1]
+                option.connect("value-changed", self.pui.save_update_options)
+        else:
+            save_button = Gtk.Button.new_with_mnemonic(_("_Save"))
+            topbox.pack_end(save_button, False, False, 0)
+            save_button.connect("clicked", self.pui.save_update_options)
         frame.add(topbox)
         frame.show_all()
         return frame
