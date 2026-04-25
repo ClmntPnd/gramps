@@ -61,7 +61,7 @@ def make_tag_size(rank, total_rank, mins=8, maxs=20):
 #
 # ------------------------------------------------------------------------
 class CloudGramplet(Gramplet):
-    """A gramplet class that displays a list of values, with each value's size determined by how many times it appears in the database. 
+    """A gramplet class that displays a list of values, with each value's size determined by how many times it appears in the database.
     They are displayed as clickable or non-clickable links depending on the information you want to display about them.
     """
 
@@ -76,34 +76,33 @@ class CloudGramplet(Gramplet):
         self.preference_no_value = ""
         self.link_type = "None"
 
-    def set_value_name(self,value_name):
+    def set_value_name(self, value_name):
         """What the cloud displays. For a name cloud, `value_name` is "name" """
         self.value_name = _(value_name)
 
-    def set_item_name(self,item_name):
+    def set_item_name(self, item_name):
         """What the cloud analyzes. For a keyword cloud, the value of "value_name" could be "person." """
         self.item_name = _(item_name)
 
-    def set_preference_no_value(self,preference_no_value):
+    def set_preference_no_value(self, preference_no_value):
         """When there is a default configuration to display if no values are provided"""
         self.preference_no_value = preference_no_value
 
-    def set_link_type(self,link_type):
+    def set_link_type(self, link_type):
         """The type of link that appears when a user double-clicks on a value"""
         self.link_type = link_type
-        
 
     @abstractmethod
     def db_changed(self):
-        """Connect the cloud with db. 
-            See the exemple in surnamecloudgramplet.py 
+        """Connect the cloud with db.
+        See the exemple in surnamecloudgramplet.py
         """
         pass
-        
+
     @abstractmethod
     def get_items(self) -> list:
         """How to access data in the cloud. Must return an iterator of type (value, related_data).
-            See the example in surnamecloudgramplet.py
+        See the example in surnamecloudgramplet.py
         """
         pass
 
@@ -114,7 +113,9 @@ class CloudGramplet(Gramplet):
             self.max_font = int(self.gui.data[2])
 
     def save_update_options(self, widget=None):
-        self.top_size = int(self.get_option(_("Number of " + self.value_name)).get_value())
+        self.top_size = int(
+            self.get_option(_("Number of " + self.value_name)).get_value()
+        )
         self.min_font = int(self.get_option(_("Min font size")).get_value())
         self.max_font = int(self.get_option(_("Max font size")).get_value())
         self.gui.data = [self.top_size, self.min_font, self.max_font]
@@ -130,14 +131,14 @@ class CloudGramplet(Gramplet):
         values_linked_data = {}
         total_item = 0
 
-        # Initialise dict variables and total 
+        # Initialise dict variables and total
         for value, linked_data in self.get_items():
             if value not in values_counts:
 
                 values_linked_data[value] = linked_data
                 values_counts[value] = 1
-            else : 
-                values_counts[value] +=1
+            else:
+                values_counts[value] += 1
 
             total_item += 1
             yield_counter += 1
@@ -145,45 +146,46 @@ class CloudGramplet(Gramplet):
                 yield True
         yield_counter = 0
 
-
         # count order : [(value,count),...]
-        sorted_values = sorted(list(values_counts.items()), key= (lambda k : k[1]), reverse=True)
+        sorted_values = sorted(
+            list(values_counts.items()), key=(lambda k: k[1]), reverse=True
+        )
         total_unique = len(sorted_values)
 
         ## limit counts to only include those that we can display (<= self.top_size)
         acc = 0
         selected_values = []
         for value, count in sorted_values:
-            if acc + count  > self.top_size:
+            if acc + count > self.top_size:
                 break
             acc += count
-            selected_values.append((value,count))
+            selected_values.append((value, count))
             if not yield_counter % _YIELD_INTERVAL:
-                    yield True
+                yield True
         yield_counter = 0
-        
+
         # Define rank of each value (start at 0)
         values_rank = {}
         curr_rank = 0
 
         if selected_values != []:
-            curr_count = selected_values[0][1] # first max value
+            curr_count = selected_values[0][1]  # first max value
             for value, count in selected_values:
                 if curr_count > count:
                     curr_count = count
                     curr_rank += 1
-                values_rank[value] = curr_rank  
+                values_rank[value] = curr_rank
                 if not yield_counter % _YIELD_INTERVAL:
                     yield True
             yield_counter = 0
 
-        # alpha order 
-        selected_values.sort(key= lambda k : k[0])
-        
+        # alpha order
+        selected_values.sort(key=lambda k: k[0])
+
         # Display
         mins = self.min_font
         maxs = self.max_font
-        
+
         showing = 0
         self.set_text("")
         for value, count in selected_values:
@@ -194,22 +196,25 @@ class CloudGramplet(Gramplet):
                     text = _(f"[Missing %s]") % self.value_name
             else:
                 text = value
-            size = make_tag_size(values_rank[value],curr_rank , mins=mins, maxs=maxs)
+            size = make_tag_size(values_rank[value], curr_rank, mins=mins, maxs=maxs)
             self.link(
                 text,
                 self.link_type,
                 values_linked_data[value],
                 size,
-                "%s, %d%% (%d)"
-                % (text, int((float(count) / total_item) * 100), count),
+                "%s, %d%% (%d)" % (text, int((float(count) / total_item) * 100), count),
             )
             self.append_text(" ")
             showing += 1
         self.append_text(
             ("\n\n" + _("Total unique %s") + ": %d\n") % (self.value_name, total_unique)
         )
-        self.append_text((_("Total %s showing") + ": %d\n") % (self.value_name,showing))
-        self.append_text((_("Total %s") + ": %d") % (self.item_name,total_item), "begin")
+        self.append_text(
+            (_("Total %s showing") + ": %d\n") % (self.value_name, showing)
+        )
+        self.append_text(
+            (_("Total %s") + ": %d") % (self.item_name, total_item), "begin"
+        )
 
     def build_options(self):
         from gramps.gen.plug.menu import NumberOption
@@ -224,6 +229,8 @@ class CloudGramplet(Gramplet):
         self.add_option(self.max_option)
 
     def save_options(self):
-        self.top_size = int(self.get_option(_("Number of %s") % self.value_name).get_value())
+        self.top_size = int(
+            self.get_option(_("Number of %s") % self.value_name).get_value()
+        )
         self.min_font = int(self.get_option(_("Min font size")).get_value())
         self.max_font = int(self.get_option(_("Max font size")).get_value())

@@ -27,7 +27,8 @@
 #
 # ------------------------------------------------------------------------
 
-from gramps.plugins.gramplet.cloudgramplet import CloudGramplet 
+from gramps.plugins.gramplet.cloudgramplet import CloudGramplet
+
 
 # ------------------------------------------------------------------------
 #
@@ -58,5 +59,5 @@ class SurnameCloudGramplet(CloudGramplet):
             allnames = [person.get_primary_name()] + person.get_alternate_names()
             for name in allnames:
                 name = name.get_group_name().strip()
-                items.append((name , person.handle))
+                items.append((name, person.handle))
         return items

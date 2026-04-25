@@ -50,7 +50,6 @@ class PlaceCloudGramplet(CloudGramplet):
 
         for place in self.dbstate.db.iter_places():
             placename = place.name.get_value()
-            items.append((placename,place.handle))
+            items.append((placename, place.handle))
 
         return items
-
