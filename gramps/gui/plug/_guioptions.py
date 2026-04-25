@@ -396,6 +396,7 @@ class GuiSliderOption(Gtk.Box):
         self.__decimals = 0
         if step < 1:
             import math
+
             self.__decimals = int(math.log10(step) * -1)
 
         Gtk.Box.__init__(self, orientation=Gtk.Orientation.HORIZONTAL, spacing=4)

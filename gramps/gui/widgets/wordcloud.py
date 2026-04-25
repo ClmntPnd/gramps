@@ -267,7 +267,9 @@ class WordCloudWidget(Gtk.DrawingArea):
         self._color_hover = color_hover
         self.queue_draw()
 
-    def configure(self, quality=None, color_low=None, color_high=None, color_hover=None):
+    def configure(
+        self, quality=None, color_low=None, color_high=None, color_hover=None
+    ):
         """Update settings without triggering a redraw; call set_words() after."""
         if quality is not None:
             self._quality = max(0.0, min(1.0, quality))

@@ -54,7 +54,5 @@ class GivenNameCloudGramplet(CloudGramplet):
             allnames = [person.get_primary_name()] + person.get_alternate_names()
             for name in allnames:
                 name = name.get_first_name().strip()
-                items.append((name,name))
+                items.append((name, name))
         return items
-        
-
