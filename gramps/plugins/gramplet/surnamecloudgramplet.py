@@ -27,6 +27,7 @@ from gramps.plugins.gramplet.cloudgramplet import CloudGramplet
 
 _ = glocale.translation.sgettext
 
+
 # ------------------------------------------------------------------------
 #
 # SurnameCloudGramplet class
@@ -42,7 +43,9 @@ class SurnameCloudGramplet(CloudGramplet):
         self.set_tooltip(_("Click surname to view people with that surname"))
 
     def on_item_clicked(self, word, linked_data):
-        run_quick_report_by_name(self.dbstate, self.uistate, "samesurnames", linked_data)
+        run_quick_report_by_name(
+            self.dbstate, self.uistate, "samesurnames", linked_data
+        )
 
     def db_changed(self):
         self.connect(self.dbstate.db, "person-add", self.update)
@@ -58,7 +61,7 @@ class SurnameCloudGramplet(CloudGramplet):
             allnames = [person.get_primary_name()] + person.get_alternate_names()
             for name in allnames:
                 surname = name.get_surname().strip()
-                if not surname:
+                if self.filter_missing and (not surname or surname == "?"):
                     continue
                 counts[surname] = counts.get(surname, 0) + 1
                 if surname not in handles:

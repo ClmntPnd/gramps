@@ -43,10 +43,10 @@ _ = glocale.translation.sgettext
 
 _YIELD_INTERVAL = 350
 
-_DEFAULT_COLOR_LOW   = "#99ccff"   # (0.6, 0.8, 1.0)
-_DEFAULT_COLOR_HIGH  = "#003399"   # (0.0, 0.2, 0.6)
-_DEFAULT_COLOR_HOVER = "#cc0000"   # (0.8, 0.0, 0.0)
-_DEFAULT_QUALITY     = 0.0
+_DEFAULT_COLOR_LOW = "#99ccff"  # (0.6, 0.8, 1.0)
+_DEFAULT_COLOR_HIGH = "#003399"  # (0.0, 0.2, 0.6)
+_DEFAULT_COLOR_HOVER = "#cc0000"  # (0.8, 0.0, 0.0)
+_DEFAULT_QUALITY = 0.0
 
 
 def _hex_to_rgb(hex_color):
@@ -71,12 +71,13 @@ class CloudGramplet(Gramplet):
     autosave_options = True
 
     def init(self):
-        self.top_size    = 150
-        self.color_low   = _DEFAULT_COLOR_LOW
-        self.color_high  = _DEFAULT_COLOR_HIGH
+        self.top_size = 150
+        self.color_low = _DEFAULT_COLOR_LOW
+        self.color_high = _DEFAULT_COLOR_HIGH
         self.color_hover = _DEFAULT_COLOR_HOVER
-        self.quality     = _DEFAULT_QUALITY
-        self.value_name  = "default_value_name"
+        self.quality = _DEFAULT_QUALITY
+        self.filter_missing = True
+        self.value_name = "default_value_name"
         self.preference_no_value = ""
         self._values_linked_data = {}
 
@@ -112,7 +113,7 @@ class CloudGramplet(Gramplet):
     @abstractmethod
     def db_changed(self):
         """Connect the cloud with db.
-            See the example in surnamecloudgramplet.py
+        See the example in surnamecloudgramplet.py
         """
         pass
 
@@ -129,10 +130,12 @@ class CloudGramplet(Gramplet):
         if len(data) >= 1:
             self.top_size = int(data[0])
         if len(data) >= 5:
-            self.color_low   = data[1]
-            self.color_high  = data[2]
+            self.color_low = data[1]
+            self.color_high = data[2]
             self.color_hover = data[3]
-            self.quality     = float(data[4])
+            self.quality = float(data[4])
+        if len(data) >= 6:
+            self.filter_missing = bool(int(data[5]))
         self.word_cloud.set_colors(
             _hex_to_rgb(self.color_low),
             _hex_to_rgb(self.color_high),
@@ -141,11 +144,16 @@ class CloudGramplet(Gramplet):
         self.word_cloud.set_quality(self.quality)
 
     def _read_options(self):
-        self.top_size    = int(self.get_option(_("Number of %s") % self.value_name).get_value())
-        self.color_low   = self.get_option(_("Color (low)")).get_value()
-        self.color_high  = self.get_option(_("Color (high)")).get_value()
+        self.top_size = int(
+            self.get_option(_("Number of %s") % self.value_name).get_value()
+        )
+        self.color_low = self.get_option(_("Color (low)")).get_value()
+        self.color_high = self.get_option(_("Color (high)")).get_value()
         self.color_hover = self.get_option(_("Hover color")).get_value()
-        self.quality     = float(self.get_option(_("Layout quality")).get_value())
+        self.quality = float(self.get_option(_("Layout quality")).get_value())
+        self.filter_missing = self.get_option(
+            _("Filter missing/unknown words")
+        ).get_value()
 
     def save_update_options(self, widget=None):
         self._read_options()
@@ -155,6 +163,7 @@ class CloudGramplet(Gramplet):
             self.color_high,
             self.color_hover,
             self.quality,
+            int(self.filter_missing),
         ]
         self.update()
 
@@ -211,14 +220,15 @@ class CloudGramplet(Gramplet):
         self.word_cloud.set_words(words)
 
     def build_options(self):
-        from gramps.gen.plug.menu import ColorOption, SliderOption
+        from gramps.gen.plug.menu import BooleanOption, ColorOption, SliderOption
 
         self.add_option(
             SliderOption(_("Number of %s") % self.value_name, self.top_size, 1, 150)
         )
-        self.add_option(ColorOption(_("Color (low)"),   self.color_low))
-        self.add_option(ColorOption(_("Color (high)"),  self.color_high))
-        self.add_option(ColorOption(_("Hover color"),   self.color_hover))
+        self.add_option(ColorOption(_("Color (low)"), self.color_low))
+        self.add_option(ColorOption(_("Color (high)"), self.color_high))
+        self.add_option(ColorOption(_("Hover color"), self.color_hover))
+        self.add_option(SliderOption(_("Layout quality"), self.quality, 0.0, 1.0, 0.1))
         self.add_option(
-            SliderOption(_("Layout quality"), self.quality, 0.0, 1.0, 0.1)
+            BooleanOption(_("Filter missing/unknown words"), self.filter_missing)
         )

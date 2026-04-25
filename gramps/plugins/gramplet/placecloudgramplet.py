@@ -62,5 +62,7 @@ class PlaceCloudGramplet(CloudGramplet):
             count = sum(1 for _ in self.dbstate.db.find_backlink_handles(handle))
             if count > 0:
                 placename = place_displayer.display(self.dbstate.db, place)
+                if self.filter_missing and placename in (None, "", "?"):
+                    continue
                 items.append((placename, handle, count))
         return items
