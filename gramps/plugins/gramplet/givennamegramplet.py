@@ -29,7 +29,11 @@
 # Gramps modules
 #
 # -------------------------------------------------------------------------
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+from gramps.gui.plug.quick import run_quick_report_by_name
 from gramps.plugins.gramplet.cloudgramplet import CloudGramplet
+
+_ = glocale.translation.sgettext
 
 
 class GivenNameCloudGramplet(CloudGramplet):
