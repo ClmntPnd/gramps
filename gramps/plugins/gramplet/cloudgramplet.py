@@ -31,6 +31,7 @@ from abc import abstractmethod
 from gramps.gen.plug import Gramplet
 from gramps.gen.config import config
 from gramps.gen.const import GRAMPS_LOCALE as glocale
+from gramps.gui.widgets.wordcloud import WordCloudWidget
 
 _ = glocale.translation.sgettext
 
@@ -42,17 +43,21 @@ _ = glocale.translation.sgettext
 
 _YIELD_INTERVAL = 350
 
+_DEFAULT_COLOR_LOW = "#99ccff"  # (0.6, 0.8, 1.0)
+_DEFAULT_COLOR_HIGH = "#003399"  # (0.0, 0.2, 0.6)
+_DEFAULT_COLOR_HOVER = "#cc0000"  # (0.8, 0.0, 0.0)
+_DEFAULT_QUALITY = 0.0
 
-# ------------------------------------------------------------------------
-#
-# Local functions
-#
-# ------------------------------------------------------------------------
-def make_tag_size(rank, total_rank, mins=8, maxs=20):
-    # return font sizes mins to maxs
-    diff = maxs - mins
-    position = diff - (diff * (rank / (total_rank + 1)))
-    return int(position) + mins
+
+def _hex_to_rgb(hex_color):
+    h = hex_color.lstrip("#")
+    return tuple(int(h[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def _rgb_to_hex(rgb):
+    return "#{:02x}{:02x}{:02x}".format(
+        int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
+    )
 
 
 # ------------------------------------------------------------------------
@@ -61,169 +66,169 @@ def make_tag_size(rank, total_rank, mins=8, maxs=20):
 #
 # ------------------------------------------------------------------------
 class CloudGramplet(Gramplet):
-    """A gramplet class that displays a list of values, with each value's size determined by how many times it appears in the database. 
-    They are displayed as clickable or non-clickable links depending on the information you want to display about them.
-    """
+    """A gramplet that displays a word cloud where word size reflects frequency."""
+
+    autosave_options = True
 
     def init(self):
-        self.set_tooltip(_("Double-click surname for details"))
-        self.top_size = 150  # will be overwritten in load
-        self.min_font = 8
-        self.max_font = 20
-        self.set_text(_("No Family Tree loaded."))
+        self.top_size = 150
+        self.color_low = _DEFAULT_COLOR_LOW
+        self.color_high = _DEFAULT_COLOR_HIGH
+        self.color_hover = _DEFAULT_COLOR_HOVER
+        self.quality = _DEFAULT_QUALITY
+        self.filter_missing = True
         self.value_name = "default_value_name"
-        self.item_name = "default_item_name"
         self.preference_no_value = ""
-        self.link_type = "None"
+        self._values_linked_data = {}
 
-    def set_value_name(self,value_name):
+        self.word_cloud = WordCloudWidget(
+            [],
+            on_click=self._on_word_clicked,
+            color_low=_hex_to_rgb(self.color_low),
+            color_high=_hex_to_rgb(self.color_high),
+            color_hover=_hex_to_rgb(self.color_hover),
+            quality=self.quality,
+        )
+        self.gui.get_container_widget().remove(self.gui.textview)
+        self.gui.get_container_widget().add(self.word_cloud)
+        self.word_cloud.show()
+
+    def set_value_name(self, value_name):
         """What the cloud displays. For a name cloud, `value_name` is "name" """
         self.value_name = _(value_name)
 
-    def set_item_name(self,item_name):
-        """What the cloud analyzes. For a keyword cloud, the value of "value_name" could be "person." """
-        self.item_name = _(item_name)
-
-    def set_preference_no_value(self,preference_no_value):
+    def set_preference_no_value(self, preference_no_value):
         """When there is a default configuration to display if no values are provided"""
         self.preference_no_value = preference_no_value
 
-    def set_link_type(self,link_type):
-        """The type of link that appears when a user double-clicks on a value"""
-        self.link_type = link_type
-        
+    def _on_word_clicked(self, word):
+        linked_data = self._values_linked_data.get(word)
+        if linked_data is not None:
+            self.on_item_clicked(word, linked_data)
+
+    def on_item_clicked(self, word, linked_data):
+        """Called when the user clicks a word. Subclasses override to navigate."""
+        pass
 
     @abstractmethod
     def db_changed(self):
-        """Connect the cloud with db. 
-            See the exemple in surnamecloudgramplet.py 
+        """Connect the cloud with db.
+        See the example in surnamecloudgramplet.py
         """
         pass
-        
+
     @abstractmethod
     def get_items(self) -> list:
-        """How to access data in the cloud. Must return an iterator of type (value, related_data).
+        """How to access data in the cloud. Must return an iterator of type
+        (value, linked_data, count) triples.
             See the example in surnamecloudgramplet.py
         """
         pass
 
     def on_load(self):
-        if len(self.gui.data) == 3:
-            self.top_size = int(self.gui.data[0])
-            self.min_font = int(self.gui.data[1])
-            self.max_font = int(self.gui.data[2])
+        data = self.gui.data
+        if len(data) >= 1:
+            self.top_size = int(data[0])
+        if len(data) >= 5:
+            self.color_low = data[1]
+            self.color_high = data[2]
+            self.color_hover = data[3]
+            self.quality = float(data[4])
+        if len(data) >= 6:
+            self.filter_missing = bool(int(data[5]))
+        self.word_cloud.set_colors(
+            _hex_to_rgb(self.color_low),
+            _hex_to_rgb(self.color_high),
+            _hex_to_rgb(self.color_hover),
+        )
+        self.word_cloud.set_quality(self.quality)
+
+    def _read_options(self):
+        self.top_size = int(
+            self.get_option(_("Number of %s") % self.value_name).get_value()
+        )
+        self.color_low = self.get_option(_("Color (low)")).get_value()
+        self.color_high = self.get_option(_("Color (high)")).get_value()
+        self.color_hover = self.get_option(_("Hover color")).get_value()
+        self.quality = float(self.get_option(_("Layout quality")).get_value())
+        self.filter_missing = self.get_option(
+            _("Filter missing/unknown words")
+        ).get_value()
 
     def save_update_options(self, widget=None):
-        self.top_size = int(self.get_option(_("Number of " + self.value_name)).get_value())
-        self.min_font = int(self.get_option(_("Min font size")).get_value())
-        self.max_font = int(self.get_option(_("Max font size")).get_value())
-        self.gui.data = [self.top_size, self.min_font, self.max_font]
+        self._read_options()
+        self.gui.data = [
+            self.top_size,
+            self.color_low,
+            self.color_high,
+            self.color_hover,
+            self.quality,
+            int(self.filter_missing),
+        ]
         self.update()
 
+    def save_options(self):
+        self._read_options()
+
     def main(self):
-        self.set_text(_("Processing...") + "\n")
         yield True
 
         yield_counter = 0
 
         values_counts = {}
         values_linked_data = {}
-        total_item = 0
 
-        # Initialise dict variables and total 
-        for value, linked_data in self.get_items():
+        for value, linked_data, count in self.get_items():
             if value not in values_counts:
-
                 values_linked_data[value] = linked_data
-                values_counts[value] = 1
-            else : 
-                values_counts[value] +=1
+                values_counts[value] = count
+            else:
+                values_counts[value] += count
 
-            total_item += 1
             yield_counter += 1
             if not yield_counter % _YIELD_INTERVAL:
                 yield True
-        yield_counter = 0
 
+        # count order: [(value, count), ...]
+        sorted_values = sorted(
+            list(values_counts.items()), key=(lambda k: k[1]), reverse=True
+        )
 
-        # count order : [(value,count),...]
-        sorted_values = sorted(list(values_counts.items()), key= (lambda k : k[1]), reverse=True)
-        total_unique = len(sorted_values)
+        # limit to top_size distinct values
+        selected_values = sorted_values[: self.top_size]
 
-        ## limit counts to only include those that we can display (<= self.top_size)
-        acc = 0
-        selected_values = []
-        for value, count in sorted_values:
-            if acc + count  > self.top_size:
-                break
-            acc += count
-            selected_values.append((value,count))
-            if not yield_counter % _YIELD_INTERVAL:
-                    yield True
-        yield_counter = 0
-        
-        # Define rank of each value (start at 0)
-        values_rank = {}
-        curr_rank = 0
-
-        if selected_values != []:
-            curr_count = selected_values[0][1] # first max value
-            for value, count in selected_values:
-                if curr_count > count:
-                    curr_count = count
-                    curr_rank += 1
-                values_rank[value] = curr_rank  
-                if not yield_counter % _YIELD_INTERVAL:
-                    yield True
-            yield_counter = 0
-
-        # alpha order 
-        selected_values.sort(key= lambda k : k[0])
-        
-        # Display
-        mins = self.min_font
-        maxs = self.max_font
-        
-        showing = 0
-        self.set_text("")
+        # Build words list for the widget, resolving empty-value display text
+        self._values_linked_data = {}
+        words = []
         for value, count in selected_values:
             if len(value) == 0:
                 if self.preference_no_value != "":
-                    text = config.get(self.preference_no_value)
+                    display = config.get(self.preference_no_value)
                 else:
-                    text = _(f"[Missing %s]") % self.value_name
+                    display = _("[Missing %s]") % self.value_name
             else:
-                text = value
-            size = make_tag_size(values_rank[value],curr_rank , mins=mins, maxs=maxs)
-            self.link(
-                text,
-                self.link_type,
-                values_linked_data[value],
-                size,
-                "%s, %d%% (%d)"
-                % (text, int((float(count) / total_item) * 100), count),
-            )
-            self.append_text(" ")
-            showing += 1
-        self.append_text(
-            ("\n\n" + _("Total unique %s") + ": %d\n") % (self.value_name, total_unique)
+                display = value
+            self._values_linked_data[display] = values_linked_data.get(value)
+            words.append((display, count))
+
+        self.word_cloud.configure(
+            quality=self.quality,
+            color_low=_hex_to_rgb(self.color_low),
+            color_high=_hex_to_rgb(self.color_high),
+            color_hover=_hex_to_rgb(self.color_hover),
         )
-        self.append_text((_("Total %s showing") + ": %d\n") % (self.value_name,showing))
-        self.append_text((_("Total %s") + ": %d") % (self.item_name,total_item), "begin")
+        self.word_cloud.set_words(words)
 
     def build_options(self):
-        from gramps.gen.plug.menu import NumberOption
+        from gramps.gen.plug.menu import BooleanOption, ColorOption, SliderOption
 
-        self.top_size_option = NumberOption(
-            _("Number of %s") % self.value_name, self.top_size, 1, 150
+        self.add_option(
+            SliderOption(_("Number of %s") % self.value_name, self.top_size, 1, 150)
         )
-        self.add_option(self.top_size_option)
-        self.min_option = NumberOption(_("Min font size"), self.min_font, 1, 50)
-        self.add_option(self.min_option)
-        self.max_option = NumberOption(_("Max font size"), self.max_font, 1, 50)
-        self.add_option(self.max_option)
-
-    def save_options(self):
-        self.top_size = int(self.get_option(_("Number of %s") % self.value_name).get_value())
-        self.min_font = int(self.get_option(_("Min font size")).get_value())
-        self.max_font = int(self.get_option(_("Max font size")).get_value())
+        self.add_option(ColorOption(_("Color (low)"), self.color_low))
+        self.add_option(ColorOption(_("Color (high)"), self.color_high))
+        self.add_option(ColorOption(_("Hover color"), self.color_hover))
+        self.add_option(SliderOption(_("Layout quality"), self.quality, 0.0, 1.0, 0.1))
+        self.add_option(
+            BooleanOption(_("Filter missing/unknown words"), self.filter_missing)
+        )
