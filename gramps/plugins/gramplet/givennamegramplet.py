@@ -35,7 +35,11 @@ from gramps.plugins.gramplet.cloudgramplet import CloudGramplet
 
 _ = glocale.translation.sgettext
 
-
+# ------------------------------------------------------------------------
+#
+# GivenNameCloudGramplet class
+#
+# ------------------------------------------------------------------------
 class GivenNameCloudGramplet(CloudGramplet):
     """Implementation of a Cloud gramplet for given name"""
 
